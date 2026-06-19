@@ -1,98 +1,112 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from "react";
+import { Text, View, StyleSheet, ScrollView, Image } from "react-native";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
+interface PokemonAPI {
+  name: string;
+  url: string;
+}
+interface Pokemon {
+  name: string;
+  image: string;
+  imageBack: string;
+  types: PokemonType[];
 }
 
-export default function HomeScreen() {
+interface PokemonType {
+  type: {
+    name: string;
+    url: string;
+  }
+}
+
+export default function Index() {
+  const [pokemons, setPokemons] = useState<Pokemon[]>([]);
+
+  console.log("pokemon[0]:", JSON.stringify(pokemons[0], null, 2));
+
+  useEffect(() => {
+    // fetch data from pokeapi 
+    fetchPokemon();
+  }, []);
+
+  async function fetchPokemon() {
+    try {
+      const response = await fetch("https://pokeapi.co/api/v2/pokemon?limit=20");
+
+      const data = await response.json();
+
+      // console.log("Fetched Pokemon data:", data);
+
+      //fetch detailed info for each Pokemon in parallel
+      const detailedPokemons = await Promise.all(
+        data.results.map(async (pokemon: PokemonAPI) => {
+          const res = await fetch(pokemon.url);
+          const details = await res.json();
+          return {
+            name: pokemon.name,
+            image: details.sprites.front_default,
+            imageBack: details.sprites.back_default,
+            types: details.types
+          }
+        })
+      );
+
+      //console.log("Pokemon data:", data);
+      //setPokemons(data.results);
+
+      //   console.log("Detailed Pokemon data:", detailedPokemons);
+      setPokemons(detailedPokemons);
+
+    } catch (error) {
+      console.error("Fetch Pokemon error:", error);
+    }
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <ScrollView >
+      {
+        pokemons.map((pokemon) => {
+          return (
+            <View key={pokemon.name}>
+              <Text style={styles.name}>{pokemon.name}</Text>
+              <Text style={styles.type}>
+                {pokemon.types.map((type) => type.type.name).join(", ")}
+              </Text>
+              <View style={{
+                flexDirection: "row-reverse",
+                justifyContent: "space-around"
+              }}>
+                <Image source={{ uri: pokemon.image }}
+                  style={{ width: 150, height: 150 }} />
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+                <Image source={{ uri: pokemon.imageBack }}
+                  style={{ width: 150, height: 150 }} />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+              </View>
+            </View>
+          )
+        })
+      }
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: "center",
+
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+  name: {
+    fontSize: 28,
+    fontWeight: "bold",
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  type: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "gray"
+  }
+
 });
+
