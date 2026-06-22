@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Text, View, StyleSheet, ScrollView, Image } from "react-native";
+import { Text, View, StyleSheet, ScrollView, Image, Pressable } from "react-native";
+import { router } from "expo-router";
 
 interface PokemonAPI {
   name: string;
@@ -43,7 +44,7 @@ const colorByType: { [key: string]: string } = {
 export default function Index() {
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
 
-  console.log("pokemon[0]:", JSON.stringify(pokemons[0], null, 2));
+//  console.log("pokemon[0]:", JSON.stringify(pokemons[0], null, 2));
 
   useEffect(() => {
     // fetch data from pokeapi 
@@ -67,7 +68,8 @@ export default function Index() {
             name: pokemon.name,
             image: details.sprites.front_default,
             imageBack: details.sprites.back_default,
-            types: details.types
+            types: details.types,
+            
           }
         })
       );
@@ -84,35 +86,47 @@ export default function Index() {
   }
 
   return (
-    <ScrollView  contentContainerStyle={{
-       gap: 20,
-       padding: 20,      
+    <ScrollView contentContainerStyle={{
+      gap: 20,
+      padding: 20,
     }}>
       {
         pokemons.map((pokemon) => {
           return (
-            <View key={pokemon.name}
-              style={{backgroundColor : 
-                    colorByType[pokemon.types[0].type.name],
-                     padding: 20, borderRadius: 10
-                    }}
+            <Pressable key={pokemon.name}
+              onPress={() => {
+                router.push({
+                     pathname: "/details" ,
+                      params: {
+                        name: pokemon.name,                        
+                      }
+                });
+              }}
+              style={{
+                backgroundColor:
+                  colorByType[pokemon.types[0].type.name] + 50,
+                padding: 20, borderRadius: 10
+              }}
             >
-              <Text style={styles.name}>{pokemon.name}</Text>
-              <Text style={styles.type}>
-                {pokemon.types.map((type) => type.type.name).join(", ")}
-              </Text>
-              <View style={{
-                flexDirection: "row-reverse",
-                justifyContent: "space-around"
-              }}>
-                <Image source={{ uri: pokemon.image }}
-                  style={{ width: 150, height: 150 }} />
+              <View>
+                <Text style={styles.name}>{pokemon.name}</Text>
+                <Text style={styles.type}>
+                  {pokemon.types.map((type) => type.type.name).join(", ")}
+                </Text>
+                <View style={{
+                  flexDirection: "row-reverse",
+                  justifyContent: "space-around"
+                }}>
+                  <Image source={{ uri: pokemon.image }}
+                    style={{ width: 150, height: 150 }} />
 
-                <Image source={{ uri: pokemon.imageBack }}
-                  style={{ width: 150, height: 150 }} />
+                  <Image source={{ uri: pokemon.imageBack }}
+                    style={{ width: 150, height: 150 }} />
 
+                </View>
               </View>
-            </View>
+            </Pressable>
+
           )
         })
       }
@@ -130,11 +144,13 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 28,
     fontWeight: "bold",
+    textAlign: "center",
   },
   type: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "gray"
+    color: "gray",
+    textAlign: "center",
   }
 
 });
