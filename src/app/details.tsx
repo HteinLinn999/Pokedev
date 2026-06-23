@@ -1,9 +1,21 @@
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import { useMemo, useEffect } from "react";
-import { ScrollView, StyleSheet, Text, Platform, View } from "react-native";
+import { useMemo, useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, Platform, View, ActivityIndicator, Image } from "react-native";
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
 
+
+interface PokemonDetails {
+    name: string;
+    height: number;
+    weight: number;
+    image: string;
+    types: string[];
+    abilities: string[];
+}
 export default function Details() {
+
+    const [pokemon, setPokemon] = useState<PokemonDetails | null>(null);
+    const [loading, setLoading] = useState(false);
 
     const { name } = useLocalSearchParams();
     const snapPoints = useMemo(() => ["30%", "50%", "70%"], []);
@@ -17,12 +29,30 @@ export default function Details() {
     async function fetchPokemonByName(name: string) {
         try {
             //fetch 
+            setLoading(true);
+            const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+            const data = await response.json();
+            console.log("Data  in details:"+ data)
+            setPokemon({
+                name: data.name,
+                height: data.height,
+                weight: data.weight,
+                image: data.sprites.front_default,
+                types: data.types.map((item: any) => item.type.name),
+                abilities: data.abilities.map((item: any) => item.ability.name),
+            });
+
+
         } catch (error) {
-            console.log("error ", error);
+            console.log("Fetch pokemon detail error:", error);
+        } finally {
+            setLoading(false);
         }
     }
     if (Platform.OS === "ios") {
-        return <DetailsContent name={name as string} />;
+        return <DetailsContent  pokemon={pokemon} 
+                                loading={loading} 
+                                name={name as string} />;
     }
 
     return (
@@ -45,7 +75,9 @@ export default function Details() {
                     )}
                 >
                     <BottomSheetView style={styles.sheetContent}>
-                        <DetailsContent name={name as string} />
+                        <DetailsContent pokemon={pokemon}
+                                        loading={loading} 
+                                        name={name as string} />
                     </BottomSheetView>
                 </BottomSheet>
             </View>
@@ -53,12 +85,54 @@ export default function Details() {
     );
 }
 
-function DetailsContent({ name }: { name?: string }) {
+// function DetailsContent({ name }: { name?: string }) {
+function DetailsContent(
+    { pokemon, loading, name }:
+        {
+            pokemon: PokemonDetails | null,
+            loading: boolean,
+            name?: string
+        }) {
+
+    if (loading) {
+        return (
+            <View style={styles.centerContent}>
+                <ActivityIndicator size="large" />
+                <Text>Loading {name}...</Text>
+            </View>
+        );
+    }
+    if (!pokemon) {
+        return (
+            <View style={styles.centerContent}>
+                <Text>No Pokemon found.</Text>
+            </View>
+        );
+    }
+
     return (
         <>
-            <Text style={styles.title}>{name}</Text>
+            <Text style={styles.title}>{pokemon.name}</Text>
             <ScrollView contentContainerStyle={styles.content}>
-                <Text>Pokemon Name: {name}</Text>
+                <Image source={{ uri: pokemon.image }} style={styles.image} />
+                 <Text style={styles.label}>Types</Text>
+        <Text style={styles.value}>{pokemon.types.join(", ")}</Text>
+
+        <Text style={styles.label}>Abilities</Text>
+        <Text style={styles.value}>{pokemon.abilities.join(", ")}</Text>
+
+        <View style={styles.row}>
+          <View style={styles.statBox}>
+            <Text style={styles.label}>Height</Text>
+            <Text style={styles.value}>{pokemon.height}</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <Text style={styles.label}>Weight</Text>
+            <Text style={styles.value}>{pokemon.weight}</Text>
+          </View>
+        </View>
+
             </ScrollView>
 
         </>
@@ -66,21 +140,52 @@ function DetailsContent({ name }: { name?: string }) {
 }
 
 const styles = StyleSheet.create({
-    androidModal: {
-        flex: 1,
-        backgroundColor: "transparent",
-    },
-    sheetContent: {
-        flex: 1,
-    },
-    content: {
-        gap: 20,
-        padding: 20,
-        // backgroundColor: "red"
-    },
-    title: {
-        fontSize: 22,
-        fontWeight: "600",
-        textAlign: "center"
-    },
+  androidModal: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
+  sheetContent: {
+    flex: 1,
+  },
+  centerContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  content: {
+    gap: 12,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+    textTransform: "capitalize",
+    marginTop: 12,
+  },
+  image: {
+    width: 160,
+    height: 160,
+    alignSelf: "center",
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  value: {
+    fontSize: 16,
+    textTransform: "capitalize",
+  },
+  row: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  statBox: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: "#f1f1f1",
+  },
 });
