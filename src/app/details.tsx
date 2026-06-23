@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     content: {
         gap: 20,
         padding: 20,
-        backgroundColor: "red"
+        // backgroundColor: "red"
     },
     title: {
         fontSize: 22,
@@ -84,32 +84,3 @@ const styles = StyleSheet.create({
         textAlign: "center"
     },
 });
-
-// export default function Details() {
-//     const { name } = useLocalSearchParams();
-//     const params = useLocalSearchParams();
-//     console.log(params)
-
-
-//     useEffect(()=>{},[])
-
-//     async function fetchPokemonByName(name: string){
-//         try{
-//             //fetch
-//         }catch(error){}
-//     }
-
-//     return (
-//         <ScrollView contentContainerStyle={{
-//             gap: 20,
-//             padding: 20,
-//         }}>
-//             <Text>Details</Text>
-//             <Text>Pokemon Name: {name}</Text>
-//         </ScrollView>
-//     );
-// }
-
-// const styles = StyleSheet.create({
-
-// });
