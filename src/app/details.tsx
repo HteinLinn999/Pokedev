@@ -3,7 +3,10 @@ import { useMemo, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, Platform, View, ActivityIndicator, Image } from "react-native";
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
 
-
+interface PokemonStat {
+    name: string,
+    value: number;
+}
 interface PokemonDetails {
     name: string;
     height: number;
@@ -11,6 +14,7 @@ interface PokemonDetails {
     image: string;
     types: string[];
     abilities: string[];
+    stats: PokemonStat[];
 }
 export default function Details() {
 
@@ -18,7 +22,7 @@ export default function Details() {
     const [loading, setLoading] = useState(false);
 
     const { name } = useLocalSearchParams();
-    const snapPoints = useMemo(() => ["30%", "50%", "70%"], []);
+    const snapPoints = useMemo(() => ["40%", "65%", "90%"], []);
 
     useEffect(() => {
         if (name) {
@@ -31,8 +35,11 @@ export default function Details() {
             //fetch 
             setLoading(true);
             const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+            if (!response.ok) {
+                throw new Error("Pokemon detail fetch failed");
+            }
             const data = await response.json();
-            console.log("Data  in details:"+ data)
+
             setPokemon({
                 name: data.name,
                 height: data.height,
@@ -40,6 +47,10 @@ export default function Details() {
                 image: data.sprites.front_default,
                 types: data.types.map((item: any) => item.type.name),
                 abilities: data.abilities.map((item: any) => item.ability.name),
+                stats: data.stats.map((item: any) => ({
+                    name: item.stat.name,
+                    value: item.base_stat
+                }))
             });
 
 
@@ -50,18 +61,16 @@ export default function Details() {
         }
     }
     if (Platform.OS === "ios") {
-        return <DetailsContent  pokemon={pokemon} 
-                                loading={loading} 
-                                name={name as string} />;
+        return <DetailsContent pokemon={pokemon}
+            loading={loading}
+            name={name as string} />;
     }
 
     return (
         <>
-            {/* <Stack.Screen options={{  title:"test"}} /> */}
-
             <View style={styles.androidModal}>
                 <BottomSheet
-                    index={0}
+                    index={1}
                     snapPoints={snapPoints}
                     enablePanDownToClose
                     onClose={() => router.back()}
@@ -76,8 +85,8 @@ export default function Details() {
                 >
                     <BottomSheetView style={styles.sheetContent}>
                         <DetailsContent pokemon={pokemon}
-                                        loading={loading} 
-                                        name={name as string} />
+                            loading={loading}
+                            name={name as string} />
                     </BottomSheetView>
                 </BottomSheet>
             </View>
@@ -85,7 +94,6 @@ export default function Details() {
     );
 }
 
-// function DetailsContent({ name }: { name?: string }) {
 function DetailsContent(
     { pokemon, loading, name }:
         {
@@ -115,23 +123,31 @@ function DetailsContent(
             <Text style={styles.title}>{pokemon.name}</Text>
             <ScrollView contentContainerStyle={styles.content}>
                 <Image source={{ uri: pokemon.image }} style={styles.image} />
-                 <Text style={styles.label}>Types</Text>
-        <Text style={styles.value}>{pokemon.types.join(", ")}</Text>
+                <Text style={styles.label}>Types</Text>
+                <Text style={styles.value}>{pokemon.types.join(", ")}</Text>
 
-        <Text style={styles.label}>Abilities</Text>
-        <Text style={styles.value}>{pokemon.abilities.join(", ")}</Text>
+                <Text style={styles.label}>Abilities</Text>
+                <Text style={styles.value}>{pokemon.abilities.join(", ")}</Text>
 
-        <View style={styles.row}>
-          <View style={styles.statBox}>
-            <Text style={styles.label}>Height</Text>
-            <Text style={styles.value}>{pokemon.height}</Text>
-          </View>
+                <View style={styles.row}>
+                    <View style={styles.statBox}>
+                        <Text style={styles.label}>Height</Text>
+                        <Text style={styles.value}>{pokemon.height}</Text>
+                    </View>
 
-          <View style={styles.statBox}>
-            <Text style={styles.label}>Weight</Text>
-            <Text style={styles.value}>{pokemon.weight}</Text>
-          </View>
-        </View>
+                    <View style={styles.statBox}>
+                        <Text style={styles.label}>Weight</Text>
+                        <Text style={styles.value}>{pokemon.weight}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Battle Stats</Text>
+
+                    {pokemon.stats.map((stat) => (
+                        <StatBar key={stat.name} name={stat.name} value={stat.value} />
+                    ))}
+                </View>
 
             </ScrollView>
 
@@ -139,53 +155,115 @@ function DetailsContent(
     );
 }
 
+function StatBar({ name, value }: { name: string; value: number }) {
+    const maxStat = 160;
+    const widthPercent = Math.min((value / maxStat) * 100, 100);
+
+    return (
+        <View style={styles.statRow}>
+            <View style={styles.statHeader}>
+                <Text style={styles.statName}>{formatStatName(name)}</Text>
+                <Text style={styles.statValue}>{value}</Text>
+            </View>
+
+            <View style={styles.statTrack}>
+                <View style={[styles.statFill, { width: `${widthPercent}%` }]} />
+            </View>
+        </View>
+    );
+}
+
+function formatStatName(name: string) {
+    if (name === "hp") {
+        return "HP";
+    }
+
+    return name.replace("-", " ");
+}
+
 const styles = StyleSheet.create({
-  androidModal: {
-    flex: 1,
-    backgroundColor: "transparent",
+    androidModal: {
+        flex: 1,
+        backgroundColor: "transparent",
+    },
+    sheetContent: {
+        flex: 1,
+    },
+    centerContent: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+    },
+    content: {
+        gap: 12,
+        padding: 20,
+        paddingBottom: 40,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: "700",
+        textAlign: "center",
+        textTransform: "capitalize",
+        marginTop: 12,
+    },
+    image: {
+        width: 160,
+        height: 160,
+        alignSelf: "center",
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    value: {
+        fontSize: 16,
+        textTransform: "capitalize",
+    },
+    row: {
+        flexDirection: "row",
+        gap: 12,
+    },
+    statBox: {
+        flex: 1,
+        padding: 14,
+        borderRadius: 10,
+        backgroundColor: "#f1f1f1",
+    },
+    //--------------------
+    section: {
+        gap: 8,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    statRow: {
+    gap: 6,
   },
-  sheetContent: {
-    flex: 1,
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  content: {
-    gap: 12,
-    padding: 20,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    textAlign: "center",
-    textTransform: "capitalize",
-    marginTop: 12,
-  },
-  image: {
-    width: 160,
-    height: 160,
-    alignSelf: "center",
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  value: {
-    fontSize: 16,
-    textTransform: "capitalize",
-  },
-  row: {
+  statHeader: {
     flexDirection: "row",
-    gap: 12,
+    justifyContent: "space-between",
   },
-  statBox: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: "#f1f1f1",
+  statName: {
+    fontSize: 14,
+    fontWeight: "600",
+    textTransform: "capitalize",
   },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  statTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: "#e5e5e5",
+    overflow: "hidden",
+  },
+  statFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#4ade80",
+  },
+
 });
