@@ -138,7 +138,6 @@ export default function Index() {
       }
     >
 
-
       {selectedPokemon && (
         <View style={styles.selectedCard}>
           <Image source={{ uri: selectedPokemon.image }} style={styles.selectedImage} />
@@ -151,9 +150,16 @@ export default function Index() {
             </Text>
           </View>
 
+          <Pressable
+            onPress={() => router.push("/battle")}
+            style={styles.battleButton}
+          >
+            <Text style={styles.battleButtonText}>Battle</Text>
+          </Pressable>
           <Pressable onPress={clearSelectedPokemon} style={styles.clearButton}>
             <Text style={styles.clearButtonText}>Clear</Text>
           </Pressable>
+
         </View>
       )}
       {
@@ -298,6 +304,21 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "700",
   },
+  //=========================
+  selectedActions: {
+    gap: 8,
+  },
+  battleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#22c55e",
+  },
+  battleButtonText: {
+    color: "white",
+    fontWeight: "700",
+  },
+
 
 });
 
