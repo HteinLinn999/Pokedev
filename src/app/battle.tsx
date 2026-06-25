@@ -10,7 +10,6 @@ import {
     View
 } from "react-native";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
-
 interface BattlePokemon {
     name: string;
     image: string;
@@ -21,20 +20,42 @@ interface BattlePokemon {
     speed: number;
 }
 
+type BattleResult = "playing" | "win" | "lose";
+
 export default function Battle() {
     const { selectedPokemon } = useSelectedPokemon();
 
     const [enemyPokemon, setEnemyPokemon] = useState<BattlePokemon | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const [playerHp, setPlayerHp] = useState(0);
+    const [enemyHp, setEnemyHp] = useState(0);
+    const [battleLog, setBattleLog] = useState("Battle started!");
+    const [battleResult, setBattleResult] = useState<BattleResult>("playing");
+
     useEffect(() => {
         fetchRandomEnemy();
     }, []);
 
+    useEffect(() => {
+        if (selectedPokemon) {
+            setPlayerHp(selectedPokemon.hp);
+        }
+    }, [selectedPokemon]);
+
 
     async function fetchRandomEnemy() {
+
         try {
             setLoading(true);
+            setBattleResult("playing");
+            setBattleLog("Finding enemy Pokemon...");
+            setEnemyPokemon(null);
+            setEnemyHp(0);
+
+            if (selectedPokemon) {
+                setPlayerHp(selectedPokemon.hp);
+            }
             const randomId = Math.floor(Math.random() * 151) + 1;
             const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
 
@@ -43,7 +64,7 @@ export default function Battle() {
             }
             const data = await response.json();
 
-            setEnemyPokemon({
+            const enemy: BattlePokemon = {
                 name: data.name,
                 image: data.sprites.front_default,
                 types: data.types.map((item: any) => item.type.name),
@@ -57,14 +78,67 @@ export default function Battle() {
                 speed:
                     data.stats.find((item: any) => item.stat.name === "speed")
                         ?.base_stat ?? 50,
-            });
+            };
+
+            setEnemyPokemon(enemy);
+            setEnemyHp(enemy.hp);
+
+            if (selectedPokemon) {
+                setPlayerHp(selectedPokemon.hp);
+            }
+
+            setBattleLog(`${enemy.name} appeared!`);
 
         } catch (error) {
             console.log("Fetch enemy error:", error);
+            setBattleLog("Enemy Pokemon fetch failed.");
         } finally {
             setLoading(false);
         }
     }
+
+    function calculateDamage(attacker: BattlePokemon, defender: BattlePokemon) {
+        const baseDamage = attacker.attack - defender.defense / 2;
+        const randomBonus = Math.floor(Math.random() * 8) + 4;
+        return Math.max(Math.floor(baseDamage / 4 + randomBonus), 5);
+    }
+
+    function attack() {
+        if (!selectedPokemon || !enemyPokemon || battleResult !== "playing") {
+            return;
+        }
+
+        const playerDamage = calculateDamage(selectedPokemon, enemyPokemon);
+        const nextEnemyHp = Math.max(enemyHp - playerDamage, 0);
+
+        if (nextEnemyHp <= 0) {
+            setEnemyHp(0);
+            setBattleResult("win");
+            setBattleLog(`${selectedPokemon.name} attacked! You win!`);
+            return;
+        }
+
+        const enemyDamage = calculateDamage(enemyPokemon, selectedPokemon);
+        const nextPlayerHp = Math.max(playerHp - enemyDamage, 0);
+
+        setEnemyHp(nextEnemyHp);
+        setPlayerHp(nextPlayerHp);
+
+        if (nextPlayerHp <= 0) {
+            setBattleResult("lose");
+            setBattleLog(`${enemyPokemon.name} fought back! You lose.`);
+            return;
+        }
+
+        setBattleLog(
+            `${selectedPokemon.name} dealt ${playerDamage} damage. ${enemyPokemon.name} dealt ${enemyDamage} damage.`
+        );
+    }
+
+    function playAgain() {
+        fetchRandomEnemy();
+    }
+
 
     if (!selectedPokemon) {
         return (
@@ -103,62 +177,90 @@ export default function Battle() {
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Battle Arena</Text>
 
-            <PokemonBattleCard label="Enemy" pokemon={enemyPokemon} />
+            <PokemonBattleCard
+                label="Enemy"
+                pokemon={enemyPokemon}
+                currentHp={enemyHp} />
 
+            <View style={styles.logBox}>
+                <Text style={styles.logText}>{battleLog}</Text>
+            </View>
             <Text style={styles.vsText}>VS</Text>
 
-            <PokemonBattleCard label="You" pokemon={selectedPokemon} />
+            <PokemonBattleCard
+                label="You"
+                pokemon={selectedPokemon}
+                currentHp={playerHp} />
 
-            <Pressable style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>Attack</Text>
-            </Pressable>
+            {battleResult === "playing" ? (
+                <Pressable style={styles.actionButton} onPress={attack}>
+                    <Text style={styles.actionButtonText}>Attack</Text>
+                </Pressable>
+            ) : (
+                <View style={styles.resultActions}>
+                    <Text style={styles.resultText}>
+                        {battleResult === "win" ? "You Win!" : "You Lose!"}
+                    </Text>
+
+                    <Pressable style={styles.actionButton} onPress={playAgain}>
+                        <Text style={styles.actionButtonText}>Play Again</Text>
+                    </Pressable>
+
+                    <Pressable style={styles.backButton} onPress={() => router.back()}>
+                        <Text style={styles.backButtonText}>Back Home</Text>
+                    </Pressable>
+                </View>
+            )}
         </ScrollView>
     );
 }
 
 
 function PokemonBattleCard({
-  label,
-  pokemon,
+    label,
+    pokemon,
+    currentHp,
 }: {
-  label: string;
-  pokemon: BattlePokemon;
+    label: string;
+    pokemon: BattlePokemon;
+    currentHp: number;
 }) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardLabel}>{label}</Text>
-      <Text style={styles.name}>{pokemon.name}</Text>
+    return (
+        <View style={styles.card}>
+            <Text style={styles.cardLabel}>{label}</Text>
+            <Text style={styles.name}>{pokemon.name}</Text>
 
-      <Image source={{ uri: pokemon.image }} style={styles.image} />
+            <Image source={{ uri: pokemon.image }} style={styles.image} />
 
-      <Text style={styles.type}>{pokemon.types.join(", ")}</Text>
+            <Text style={styles.type}>{pokemon.types.join(", ")}</Text>
 
-      <HpBar hp={pokemon.hp} />
+            <HpBar currentHp={currentHp} maxHp={pokemon.hp} />
 
-      <View style={styles.statsRow}>
-        <Text style={styles.statText}>ATK {pokemon.attack}</Text>
-        <Text style={styles.statText}>DEF {pokemon.defense}</Text>
-        <Text style={styles.statText}>SPD {pokemon.speed}</Text>
-      </View>
-    </View>
-  );
+            <View style={styles.statsRow}>
+                <Text style={styles.statText}>ATK {pokemon.attack}</Text>
+                <Text style={styles.statText}>DEF {pokemon.defense}</Text>
+                <Text style={styles.statText}>SPD {pokemon.speed}</Text>
+            </View>
+        </View>
+    );
 }
-function HpBar({ hp }: { hp: number }) {
-  const maxHp = 160;
-  const widthPercent = Math.min((hp / maxHp) * 100, 100);
+function HpBar({ currentHp, maxHp }:
+    { currentHp: number; maxHp: number }) {
 
-  return (
-    <View style={styles.hpContainer}>
-      <View style={styles.hpHeader}>
-        <Text style={styles.hpLabel}>HP</Text>
-        <Text style={styles.hpValue}>{hp}</Text>
-      </View>
+    const widthPercent = Math.max((currentHp / maxHp) * 100, 0);
 
-      <View style={styles.hpTrack}>
-        <View style={[styles.hpFill, { width: `${widthPercent}%` }]} />
-      </View>
-    </View>
-  );
+    return (
+        <View style={styles.hpContainer}>
+            <View style={styles.hpHeader}>
+                <Text style={styles.hpLabel}>HP</Text>
+                <Text style={styles.hpValue}>{currentHp} / {maxHp}</Text>
+            </View>
+
+            <View style={styles.hpTrack}>
+                <View style={[styles.hpFill, { width: `${widthPercent}%` }]} />
+            </View>
+        </View>
+    );
 }
 const styles = StyleSheet.create({
     container: {
@@ -270,5 +372,26 @@ const styles = StyleSheet.create({
     backButtonText: {
         color: "white",
         fontWeight: "700",
+    },
+
+    //-----------------
+    logBox: {
+        padding: 14,
+        borderRadius: 10,
+        backgroundColor: "#111827",
+    },
+    logText: {
+        color: "white",
+        fontWeight: "700",
+        textAlign: "center",
+        textTransform: "capitalize",
+    },
+    resultActions: {
+        gap: 12,
+    },
+    resultText: {
+        fontSize: 24,
+        fontWeight: "900",
+        textAlign: "center",
     },
 })

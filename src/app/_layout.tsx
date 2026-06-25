@@ -17,6 +17,13 @@ export default function RootLayout() {
               sheetAllowedDetents: Platform.OS === "ios" ? [0.4, 0.65, 0.9] : undefined,
               sheetGrabberVisible: Platform.OS === "ios",
             }} />
+
+          <Stack.Screen
+            name="battle"
+            options={{
+              title: "Battle",
+            }}
+          />
         </Stack>
       </SelectedPokemonProvider>
     </GestureHandlerRootView>
