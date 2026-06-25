@@ -31,6 +31,7 @@ export default function Battle() {
     const [playerHp, setPlayerHp] = useState(0);
     const [enemyHp, setEnemyHp] = useState(0);
     const [battleLog, setBattleLog] = useState("Battle started!");
+    const [battleLogs, setBattleLogs] = useState<string[]>([]);
     const [battleResult, setBattleResult] = useState<BattleResult>("playing");
 
     useEffect(() => {
@@ -50,6 +51,7 @@ export default function Battle() {
             setLoading(true);
             setBattleResult("playing");
             setBattleLog("Finding enemy Pokemon...");
+            setBattleLogs([]);
             setEnemyPokemon(null);
             setEnemyHp(0);
 
@@ -88,6 +90,8 @@ export default function Battle() {
             }
 
             setBattleLog(`${enemy.name} appeared!`);
+            setBattleLogs([`${enemy.name} appeared!`]);
+
 
         } catch (error) {
             console.log("Fetch enemy error:", error);
@@ -97,10 +101,57 @@ export default function Battle() {
         }
     }
 
+
+    const typeAdvantages: { [key: string]: string[] } = {
+        fire: ["grass", "ice", "bug", "steel"],
+        water: ["fire", "ground", "rock"],
+        grass: ["water", "ground", "rock"],
+        electric: ["water", "flying"],
+        ice: ["grass", "ground", "flying", "dragon"],
+        fighting: ["normal", "ice", "rock", "dark", "steel"],
+        poison: ["grass", "fairy"],
+        ground: ["fire", "electric", "poison", "rock", "steel"],
+        flying: ["grass", "fighting", "bug"],
+        psychic: ["fighting", "poison"],
+        bug: ["grass", "psychic", "dark"],
+        rock: ["fire", "ice", "flying", "bug"],
+        ghost: ["psychic", "ghost"],
+        dragon: ["dragon"],
+        dark: ["psychic", "ghost"],
+        steel: ["ice", "rock", "fairy"],
+        fairy: ["fighting", "dragon", "dark"],
+    };
+
+    function getTypeMultiplier(attacker: BattlePokemon, defender: BattlePokemon) {
+        const attackerType = attacker.types[0];
+        const defenderTypes = defender.types;
+
+        const strongAgainst = typeAdvantages[attackerType] ?? [];
+        const hasAdvantage = defenderTypes.some((type) => strongAgainst.includes(type));
+
+        return hasAdvantage ? 1.5 : 1;
+    }
+
     function calculateDamage(attacker: BattlePokemon, defender: BattlePokemon) {
         const baseDamage = attacker.attack - defender.defense / 2;
         const randomBonus = Math.floor(Math.random() * 8) + 4;
-        return Math.max(Math.floor(baseDamage / 4 + randomBonus), 5);
+        const typeMultiplier = getTypeMultiplier(attacker, defender);
+        const isCritical = Math.random() < 0.15;
+        const criticalMultiplier = isCritical ? 1.8 : 1;
+
+        const damage = Math.max(
+            Math.floor((baseDamage / 4 + randomBonus) * typeMultiplier * criticalMultiplier), 5);
+
+        return {
+            damage,
+            isCritical,
+            isSuperEffective: typeMultiplier > 1,
+        };
+    }
+
+
+    function addBattleLogs(newLogs: string[]) {
+        setBattleLogs((currentLogs) => [...newLogs, ...currentLogs].slice(0, 6));
     }
 
     function attack() {
@@ -108,31 +159,99 @@ export default function Battle() {
             return;
         }
 
-        const playerDamage = calculateDamage(selectedPokemon, enemyPokemon);
-        const nextEnemyHp = Math.max(enemyHp - playerDamage, 0);
+        const playerFirst = selectedPokemon.speed >= enemyPokemon.speed;
 
-        if (nextEnemyHp <= 0) {
-            setEnemyHp(0);
-            setBattleResult("win");
-            setBattleLog(`${selectedPokemon.name} attacked! You win!`);
+        const firstAttacker = playerFirst ? selectedPokemon : enemyPokemon;
+        const firstDefender = playerFirst ? enemyPokemon : selectedPokemon;
+
+        const firstAttack = calculateDamage(firstAttacker, firstDefender);
+
+        const logs: string[] = [];
+
+        logs.push(
+            `${firstAttacker.name} attacked for ${firstAttack.damage} damage.`
+        );
+
+        if (firstAttack.isSuperEffective) {
+            logs.push("It's super effective!");
+        }
+
+        if (firstAttack.isCritical) {
+            logs.push("Critical hit!");
+        }
+
+        if (playerFirst) {
+            const nextEnemyHp = Math.max(enemyHp - firstAttack.damage, 0);
+            setEnemyHp(nextEnemyHp);
+
+            if (nextEnemyHp <= 0) {
+                setBattleResult("win");
+                setBattleLog("You win!");
+                addBattleLogs(["You win!", ...logs]);
+                return;
+            }
+
+            const enemyAttack = calculateDamage(enemyPokemon, selectedPokemon);
+            const nextPlayerHp = Math.max(playerHp - enemyAttack.damage, 0);
+
+            logs.push(`${enemyPokemon.name} fought back for ${enemyAttack.damage} damage.`);
+
+            if (enemyAttack.isSuperEffective) {
+                logs.push("Enemy attack is super effective!");
+            }
+
+            if (enemyAttack.isCritical) {
+                logs.push("Enemy got a critical hit!");
+            }
+
+            setPlayerHp(nextPlayerHp);
+
+            if (nextPlayerHp <= 0) {
+                setBattleResult("lose");
+                setBattleLog("You lose.");
+                addBattleLogs(["You lose.", ...logs]);
+                return;
+            }
+
+            setBattleLog(`${selectedPokemon.name} attacked first.`);
+            addBattleLogs(logs);
             return;
         }
 
-        const enemyDamage = calculateDamage(enemyPokemon, selectedPokemon);
-        const nextPlayerHp = Math.max(playerHp - enemyDamage, 0);
-
-        setEnemyHp(nextEnemyHp);
+        const nextPlayerHp = Math.max(playerHp - firstAttack.damage, 0);
         setPlayerHp(nextPlayerHp);
 
         if (nextPlayerHp <= 0) {
             setBattleResult("lose");
-            setBattleLog(`${enemyPokemon.name} fought back! You lose.`);
+            setBattleLog("You lose.");
+            addBattleLogs(["You lose.", ...logs]);
             return;
         }
 
-        setBattleLog(
-            `${selectedPokemon.name} dealt ${playerDamage} damage. ${enemyPokemon.name} dealt ${enemyDamage} damage.`
-        );
+        const playerAttack = calculateDamage(selectedPokemon, enemyPokemon);
+        const nextEnemyHp = Math.max(enemyHp - playerAttack.damage, 0);
+
+        logs.push(`${selectedPokemon.name} fought back for ${playerAttack.damage} damage.`);
+
+        if (playerAttack.isSuperEffective) {
+            logs.push("Your attack is super effective!");
+        }
+
+        if (playerAttack.isCritical) {
+            logs.push("You got a critical hit!");
+        }
+
+        setEnemyHp(nextEnemyHp);
+
+        if (nextEnemyHp <= 0) {
+            setBattleResult("win");
+            setBattleLog("You win!");
+            addBattleLogs(["You win!", ...logs]);
+            return;
+        }
+
+        setBattleLog(`${enemyPokemon.name} attacked first.`);
+        addBattleLogs(logs);
     }
 
     function playAgain() {
@@ -185,6 +304,18 @@ export default function Battle() {
             <View style={styles.logBox}>
                 <Text style={styles.logText}>{battleLog}</Text>
             </View>
+            {battleLogs.length > 0 && (
+                <View style={styles.historyBox}>
+                    <Text style={styles.historyTitle}>Battle History</Text>
+
+                    {battleLogs.map((log, index) => (
+                        <Text key={`${log}-${index}`} style={styles.historyText}>
+                            {log}
+                        </Text>
+                    ))}
+                </View>
+            )}
+
             <Text style={styles.vsText}>VS</Text>
 
             <PokemonBattleCard
@@ -394,4 +525,22 @@ const styles = StyleSheet.create({
         fontWeight: "900",
         textAlign: "center",
     },
+    //===============
+    historyBox: {
+  gap: 6,
+  padding: 14,
+  borderRadius: 10,
+  backgroundColor: "#f9fafb",
+  borderWidth: 1,
+  borderColor: "#e5e7eb",
+},
+historyTitle: {
+  fontSize: 16,
+  fontWeight: "800",
+},
+historyText: {
+  fontSize: 14,
+  color: "#374151",
+  textTransform: "capitalize",
+},
 })
