@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text, View, StyleSheet, ScrollView, Image, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { router } from "expo-router";
+import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
 
 interface PokemonAPI {
   name: string;
@@ -46,6 +47,8 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const { selectedPokemon, clearSelectedPokemon } = useSelectedPokemon();
 
   //  console.log("pokemon[0]:", JSON.stringify(pokemons[0], null, 2));
 
@@ -134,6 +137,25 @@ export default function Index() {
           onRefresh={onRefresh} />
       }
     >
+
+
+      {selectedPokemon && (
+        <View style={styles.selectedCard}>
+          <Image source={{ uri: selectedPokemon.image }} style={styles.selectedImage} />
+
+          <View style={styles.selectedInfo}>
+            <Text style={styles.selectedLabel}>Your Pokemon</Text>
+            <Text style={styles.selectedName}>{selectedPokemon.name}</Text>
+            <Text style={styles.selectedType}>
+              {selectedPokemon.types.join(", ")}
+            </Text>
+          </View>
+
+          <Pressable onPress={clearSelectedPokemon} style={styles.clearButton}>
+            <Text style={styles.clearButtonText}>Clear</Text>
+          </Pressable>
+        </View>
+      )}
       {
         pokemons.map((pokemon) => {
 
@@ -234,6 +256,47 @@ const styles = StyleSheet.create({
   imageRow: {
     flexDirection: "row",
     justifyContent: "space-around",
+  },
+  //---------------
+  selectedCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: "#111827",
+  },
+  selectedImage: {
+    width: 70,
+    height: 70,
+  },
+  selectedInfo: {
+    flex: 1,
+  },
+  selectedLabel: {
+    fontSize: 13,
+    color: "#9ca3af",
+  },
+  selectedName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "white",
+    textTransform: "capitalize",
+  },
+  selectedType: {
+    fontSize: 14,
+    color: "#d1d5db",
+    textTransform: "capitalize",
+  },
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#374151",
+  },
+  clearButtonText: {
+    color: "white",
+    fontWeight: "700",
   },
 
 });

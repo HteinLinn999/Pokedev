@@ -1,8 +1,23 @@
 import { useLocalSearchParams, router, Stack } from "expo-router";
 import { useMemo, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, Platform, View, ActivityIndicator, Image } from "react-native";
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
+import {
+    ScrollView,
+    StyleSheet,
+    Text,
+    Platform,
+    View,
+    ActivityIndicator,
+    Image
+} from "react-native";
+import BottomSheet, {
+    BottomSheetBackdrop,
+    //  BottomSheetView,
+    BottomSheetFooter,
+    BottomSheetScrollView
+} from "@gorhom/bottom-sheet";
 
+import { Pressable } from "react-native";
+import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
 interface PokemonStat {
     name: string,
     value: number;
@@ -23,6 +38,8 @@ export default function Details() {
 
     const { name } = useLocalSearchParams();
     const snapPoints = useMemo(() => ["40%", "65%", "90%"], []);
+
+    const { choosePokemon } = useSelectedPokemon();
 
     useEffect(() => {
         if (name) {
@@ -61,11 +78,44 @@ export default function Details() {
         }
     }
     if (Platform.OS === "ios") {
-        return <DetailsContent pokemon={pokemon}
-            loading={loading}
-            name={name as string} />;
+        return (
+            <>
+                <ScrollView contentContainerStyle={styles.content}>
+                    <DetailsBody pokemon={pokemon} loading={loading} name={name as string} />
+
+                    {pokemon && !loading && (
+                        <Pressable style={styles.chooseButton} onPress={chooseCurrentPokemon}>
+                            <Text style={styles.chooseButtonText}>Choose Pokemon</Text>
+                        </Pressable>
+                    )}
+                </ScrollView>
+            </>
+        );
     }
 
+    function chooseCurrentPokemon() {
+        if (!pokemon) return;
+
+        const hp = pokemon?.stats.find((stat) => stat.name === "hp")?.value ?? 50;
+        const attack =
+            pokemon?.stats.find((stat) => stat.name === "attack")?.value ?? 50;
+        const defense =
+            pokemon?.stats.find((stat) => stat.name === "defense")?.value ?? 50;
+        const speed =
+            pokemon?.stats.find((stat) => stat.name === "speed")?.value ?? 50;
+
+        choosePokemon({
+            name: pokemon?.name as string,
+            image: pokemon?.image as string,
+            types: pokemon?.types as string[],
+            hp,
+            attack,
+            defense,
+            speed,
+        });
+
+        router.back();
+    }
     return (
         <>
             <View style={styles.androidModal}>
@@ -82,26 +132,41 @@ export default function Details() {
                             pressBehavior="close"
                         />
                     )}
+
+                    footerComponent={(props) =>
+                        pokemon && !loading ? (
+                            <BottomSheetFooter {...props} bottomInset={0}>
+                                <View style={styles.footer}>
+                                    <Pressable style={styles.chooseButton} onPress={chooseCurrentPokemon}>
+                                        <Text style={styles.chooseButtonText}>Choose Pokemon</Text>
+                                    </Pressable>
+                                </View>
+                            </BottomSheetFooter>
+                        ) : null
+                    }
                 >
-                    <BottomSheetView style={styles.sheetContent}>
-                        <DetailsContent pokemon={pokemon}
-                            loading={loading}
-                            name={name as string} />
-                    </BottomSheetView>
+
+
+                    <BottomSheetScrollView contentContainerStyle={styles.content}>
+                        <DetailsBody pokemon={pokemon} loading={loading} name={name as string} />
+                    </BottomSheetScrollView>
+
+
                 </BottomSheet>
             </View>
         </>
     );
 }
 
-function DetailsContent(
-    { pokemon, loading, name }:
-        {
-            pokemon: PokemonDetails | null,
-            loading: boolean,
-            name?: string
-        }) {
-
+function DetailsBody({
+    pokemon,
+    loading,
+    name,
+}: {
+    pokemon: PokemonDetails | null;
+    loading: boolean;
+    name?: string;
+}) {
     if (loading) {
         return (
             <View style={styles.centerContent}>
@@ -110,6 +175,7 @@ function DetailsContent(
             </View>
         );
     }
+
     if (!pokemon) {
         return (
             <View style={styles.centerContent}>
@@ -121,40 +187,38 @@ function DetailsContent(
     return (
         <>
             <Text style={styles.title}>{pokemon.name}</Text>
-            <ScrollView contentContainerStyle={styles.content}>
-                <Image source={{ uri: pokemon.image }} style={styles.image} />
-                <Text style={styles.label}>Types</Text>
-                <Text style={styles.value}>{pokemon.types.join(", ")}</Text>
 
-                <Text style={styles.label}>Abilities</Text>
-                <Text style={styles.value}>{pokemon.abilities.join(", ")}</Text>
+            <Image source={{ uri: pokemon.image }} style={styles.image} />
 
-                <View style={styles.row}>
-                    <View style={styles.statBox}>
-                        <Text style={styles.label}>Height</Text>
-                        <Text style={styles.value}>{pokemon.height}</Text>
-                    </View>
+            <Text style={styles.label}>Types</Text>
+            <Text style={styles.value}>{pokemon.types.join(", ")}</Text>
 
-                    <View style={styles.statBox}>
-                        <Text style={styles.label}>Weight</Text>
-                        <Text style={styles.value}>{pokemon.weight}</Text>
-                    </View>
+            <Text style={styles.label}>Abilities</Text>
+            <Text style={styles.value}>{pokemon.abilities.join(", ")}</Text>
+
+            <View style={styles.row}>
+                <View style={styles.statBox}>
+                    <Text style={styles.label}>Height</Text>
+                    <Text style={styles.value}>{pokemon.height}</Text>
                 </View>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Battle Stats</Text>
-
-                    {pokemon.stats.map((stat) => (
-                        <StatBar key={stat.name} name={stat.name} value={stat.value} />
-                    ))}
+                <View style={styles.statBox}>
+                    <Text style={styles.label}>Weight</Text>
+                    <Text style={styles.value}>{pokemon.weight}</Text>
                 </View>
+            </View>
 
-            </ScrollView>
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Battle Stats</Text>
 
+                {pokemon.stats.map((stat) => (
+                    <StatBar key={stat.name} name={stat.name} value={stat.value} />
+                ))}
+            </View>
         </>
     );
 }
-
+// create resuable component 
 function StatBar({ name, value }: { name: string; value: number }) {
     const maxStat = 160;
     const widthPercent = Math.min((value / maxStat) * 100, 100);
@@ -198,7 +262,7 @@ const styles = StyleSheet.create({
     content: {
         gap: 12,
         padding: 20,
-        paddingBottom: 40,
+        paddingBottom: 120,
     },
     title: {
         fontSize: 24,
@@ -239,31 +303,61 @@ const styles = StyleSheet.create({
         fontWeight: "700",
     },
     statRow: {
-    gap: 6,
-  },
-  statHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statName: {
-    fontSize: 14,
-    fontWeight: "600",
-    textTransform: "capitalize",
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  statTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: "#e5e5e5",
-    overflow: "hidden",
-  },
-  statFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#4ade80",
-  },
+        gap: 6,
+    },
+    statHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+    },
+    statName: {
+        fontSize: 14,
+        fontWeight: "600",
+        textTransform: "capitalize",
+    },
+    statValue: {
+        fontSize: 14,
+        fontWeight: "700",
+    },
+    statTrack: {
+        height: 10,
+        borderRadius: 999,
+        backgroundColor: "#e5e5e5",
+        overflow: "hidden",
+    },
+    statFill: {
+        height: "100%",
+        borderRadius: 999,
+        backgroundColor: "#4ade80",
+    },
+
+    //=========================
+
+    chooseButton: {
+        paddingVertical: 14,
+        borderRadius: 10,
+        backgroundColor: "#22c55e",
+        alignItems: "center",
+    },
+    chooseButtonText: {
+        color: "white",
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    //--------------------------
+    detailsContainer: {
+        flex: 1,
+    },
+    scrollArea: {
+        flex: 1,
+    },
+
+    footer: {
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 20,
+        marginBottom:20,
+        backgroundColor: "white",
+    },
+
 
 });
