@@ -22,6 +22,7 @@ interface BattlePokemon {
 
 type BattleResult = "playing" | "win" | "lose";
 
+
 export default function Battle() {
     const { selectedPokemon } = useSelectedPokemon();
 
@@ -34,6 +35,11 @@ export default function Battle() {
     const [battleLogs, setBattleLogs] = useState<string[]>([]);
     const [battleResult, setBattleResult] = useState<BattleResult>("playing");
 
+    const [round, setRound] = useState(1);
+    const [wins, setWins] = useState(0);
+    const [losses, setLosses] = useState(0);
+    const [playerMaxHp, setPlayerMaxHp] = useState(0);
+
     useEffect(() => {
         fetchRandomEnemy();
     }, []);
@@ -41,11 +47,24 @@ export default function Battle() {
     useEffect(() => {
         if (selectedPokemon) {
             setPlayerHp(selectedPokemon.hp);
+            setPlayerMaxHp(selectedPokemon.hp);
         }
     }, [selectedPokemon]);
 
+    function scaleEnemyByRound(enemy: BattlePokemon, currentRound: number) {
+        const bonus = Math.max(currentRound - 1, 0);
 
-    async function fetchRandomEnemy() {
+        return {
+            ...enemy,
+            hp: enemy.hp + bonus * 8,
+            attack: enemy.attack + bonus * 3,
+            defense: enemy.defense + bonus * 2,
+            speed: enemy.speed + bonus * 2,
+        };
+    }
+
+
+    async function fetchRandomEnemy(roundForEnemy = round) {
 
         try {
             setLoading(true);
@@ -82,16 +101,12 @@ export default function Battle() {
                         ?.base_stat ?? 50,
             };
 
-            setEnemyPokemon(enemy);
-            setEnemyHp(enemy.hp);
+            const scaledEnemy = scaleEnemyByRound(enemy, roundForEnemy);
 
-            if (selectedPokemon) {
-                setPlayerHp(selectedPokemon.hp);
-            }
-
-            setBattleLog(`${enemy.name} appeared!`);
-            setBattleLogs([`${enemy.name} appeared!`]);
-
+            setEnemyPokemon(scaledEnemy);
+            setEnemyHp(scaledEnemy.hp);
+            setBattleLog(`${scaledEnemy.name} appeared!`);
+            setBattleLogs([`${scaledEnemy.name} appeared!`]);
 
         } catch (error) {
             console.log("Fetch enemy error:", error);
@@ -186,6 +201,7 @@ export default function Battle() {
 
             if (nextEnemyHp <= 0) {
                 setBattleResult("win");
+                setWins((currentWins) => currentWins + 1);
                 setBattleLog("You win!");
                 addBattleLogs(["You win!", ...logs]);
                 return;
@@ -208,6 +224,7 @@ export default function Battle() {
 
             if (nextPlayerHp <= 0) {
                 setBattleResult("lose");
+                setLosses((currentLosses) => currentLosses + 1);
                 setBattleLog("You lose.");
                 addBattleLogs(["You lose.", ...logs]);
                 return;
@@ -223,6 +240,7 @@ export default function Battle() {
 
         if (nextPlayerHp <= 0) {
             setBattleResult("lose");
+            setLosses((currentLosses) => currentLosses + 1);
             setBattleLog("You lose.");
             addBattleLogs(["You lose.", ...logs]);
             return;
@@ -245,6 +263,7 @@ export default function Battle() {
 
         if (nextEnemyHp <= 0) {
             setBattleResult("win");
+            setWins((currentWins) => currentWins + 1);
             setBattleLog("You win!");
             addBattleLogs(["You win!", ...logs]);
             return;
@@ -255,8 +274,22 @@ export default function Battle() {
     }
 
     function playAgain() {
-        fetchRandomEnemy();
+        const nextRound = battleResult === "win" ? round + 1 : 1;
+
+        if (battleResult === "win") {
+            const healedHp = Math.min(playerHp + 20, playerMaxHp);
+            setPlayerHp(healedHp);
+        }
+
+        if (battleResult === "lose" && selectedPokemon) {
+            setPlayerHp(selectedPokemon.hp);
+            setPlayerMaxHp(selectedPokemon.hp);
+        }
+
+        setRound(nextRound);
+        fetchRandomEnemy(nextRound);
     }
+
 
 
     if (!selectedPokemon) {
@@ -286,15 +319,45 @@ export default function Battle() {
             <View style={styles.centerContainer}>
                 <Text>Enemy Pokemon not found.</Text>
 
-                <Pressable style={styles.backButton} onPress={fetchRandomEnemy}>
+                <Pressable style={styles.backButton} onPress={() => fetchRandomEnemy()}>
                     <Text style={styles.backButtonText}>Retry</Text>
                 </Pressable>
             </View>
         );
     }
+    function resetGame() {
+        if (!selectedPokemon) return;
+
+        setRound(1);
+        setWins(0);
+        setLosses(0);
+        setPlayerHp(selectedPokemon.hp);
+        setPlayerMaxHp(selectedPokemon.hp);
+        setBattleResult("playing");
+        setBattleLogs([]);
+        fetchRandomEnemy(1);
+    }
+
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Battle Arena</Text>
+
+            <View style={styles.scoreBoard}>
+                <View style={styles.scoreItem}>
+                    <Text style={styles.scoreLabel}>Round</Text>
+                    <Text style={styles.scoreValue}>{round}</Text>
+                </View>
+
+                <View style={styles.scoreItem}>
+                    <Text style={styles.scoreLabel}>Wins</Text>
+                    <Text style={styles.scoreValue}>{wins}</Text>
+                </View>
+
+                <View style={styles.scoreItem}>
+                    <Text style={styles.scoreLabel}>Losses</Text>
+                    <Text style={styles.scoreValue}>{losses}</Text>
+                </View>
+            </View>
 
             <PokemonBattleCard
                 label="Enemy"
@@ -304,7 +367,7 @@ export default function Battle() {
             <View style={styles.logBox}>
                 <Text style={styles.logText}>{battleLog}</Text>
             </View>
-            {battleLogs.length > 0 && (
+            {battleLogs?.length > 0 && (
                 <View style={styles.historyBox}>
                     <Text style={styles.historyTitle}>Battle History</Text>
 
@@ -334,7 +397,13 @@ export default function Battle() {
                     </Text>
 
                     <Pressable style={styles.actionButton} onPress={playAgain}>
-                        <Text style={styles.actionButtonText}>Play Again</Text>
+                        <Text style={styles.actionButtonText}>
+                            {battleResult === "win" ? "Next Round" : "Try Again"}
+                        </Text>
+                    </Pressable>
+
+                    <Pressable style={styles.resetButton} onPress={resetGame}>
+                        <Text style={styles.resetButtonText}>Reset Game</Text>
                     </Pressable>
 
                     <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -527,20 +596,54 @@ const styles = StyleSheet.create({
     },
     //===============
     historyBox: {
-  gap: 6,
-  padding: 14,
-  borderRadius: 10,
-  backgroundColor: "#f9fafb",
-  borderWidth: 1,
-  borderColor: "#e5e7eb",
-},
-historyTitle: {
-  fontSize: 16,
-  fontWeight: "800",
-},
-historyText: {
-  fontSize: 14,
-  color: "#374151",
-  textTransform: "capitalize",
-},
+        gap: 6,
+        padding: 14,
+        borderRadius: 10,
+        backgroundColor: "#f9fafb",
+        borderWidth: 1,
+        borderColor: "#e5e7eb",
+    },
+    historyTitle: {
+        fontSize: 16,
+        fontWeight: "800",
+    },
+    historyText: {
+        fontSize: 14,
+        color: "#374151",
+        textTransform: "capitalize",
+    },
+
+    //-------------------
+    scoreBoard: {
+        flexDirection: "row",
+        gap: 10,
+    },
+    scoreItem: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 10,
+        backgroundColor: "#111827",
+        alignItems: "center",
+    },
+    scoreLabel: {
+        color: "#9ca3af",
+        fontSize: 13,
+        fontWeight: "700",
+    },
+    scoreValue: {
+        color: "white",
+        fontSize: 22,
+        fontWeight: "900",
+    },
+    resetButton: {
+        paddingVertical: 12,
+        borderRadius: 10,
+        backgroundColor: "#e5e7eb",
+        alignItems: "center",
+    },
+    resetButtonText: {
+        color: "#111827",
+        fontWeight: "800",
+    },
+
 })
