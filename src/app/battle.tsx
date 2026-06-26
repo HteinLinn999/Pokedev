@@ -22,6 +22,26 @@ interface BattlePokemon {
 
 type BattleResult = "playing" | "win" | "lose";
 
+const colorByType: { [key: string]: string } = {
+    normal: "#A8A77A",
+    fire: "#EE8130",
+    water: "#6390F0",
+    electric: "#F7D02C",
+    grass: "#7AC74C",
+    ice: "#96D9D6",
+    fighting: "#C22E28",
+    poison: "#A33EA1",
+    ground: "#E2BF65",
+    flying: "#A98FF3",
+    psychic: "#F95587",
+    bug: "#A6B91A",
+    rock: "#B6A136",
+    ghost: "#735797",
+    dragon: "#6F35FC",
+    dark: "#705746",
+    steel: "#B7B7CE",
+    fairy: "#D685AD",
+};
 
 export default function Battle() {
     const { selectedPokemon } = useSelectedPokemon();
@@ -116,7 +136,6 @@ export default function Battle() {
         }
     }
 
-
     const typeAdvantages: { [key: string]: string[] } = {
         fire: ["grass", "ice", "bug", "steel"],
         water: ["fire", "ground", "rock"],
@@ -136,6 +155,7 @@ export default function Battle() {
         steel: ["ice", "rock", "fairy"],
         fairy: ["fighting", "dragon", "dark"],
     };
+
 
     function getTypeMultiplier(attacker: BattlePokemon, defender: BattlePokemon) {
         const attackerType = attacker.types[0];
@@ -343,6 +363,14 @@ export default function Battle() {
             <Text style={styles.title}>Battle Arena</Text>
 
             <View style={styles.scoreBoard}>
+                {wins >= 5 && (
+                    <View style={styles.championBox}>
+                        <Text style={styles.championTitle}>Champion Streak!</Text>
+                        <Text style={styles.championText}>
+                            You have won {wins} battles with {selectedPokemon.name}.
+                        </Text>
+                    </View>
+                )}
                 <View style={styles.scoreItem}>
                     <Text style={styles.scoreLabel}>Round</Text>
                     <Text style={styles.scoreValue}>{round}</Text>
@@ -364,7 +392,11 @@ export default function Battle() {
                 pokemon={enemyPokemon}
                 currentHp={enemyHp} />
 
-            <View style={styles.logBox}>
+            <View style={[styles.logBox,
+            battleResult === "win" && styles.winLogBox,
+            battleResult === "lose" && styles.loseLogBox,
+
+            ]}>
                 <Text style={styles.logText}>{battleLog}</Text>
             </View>
             {battleLogs?.length > 0 && (
@@ -392,6 +424,7 @@ export default function Battle() {
                 </Pressable>
             ) : (
                 <View style={styles.resultActions}>
+                    {/* အောက်က အနိုင်အရှံး ပြတဲ့ Text မလိုတော့ဘူး */}
                     <Text style={styles.resultText}>
                         {battleResult === "win" ? "You Win!" : "You Lose!"}
                     </Text>
@@ -425,14 +458,29 @@ function PokemonBattleCard({
     pokemon: BattlePokemon;
     currentHp: number;
 }) {
+
+    const mainType = pokemon.types[0];
+    const typeColor = colorByType[mainType] ?? "#9ca3af";
     return (
-        <View style={styles.card}>
+        <View style={[styles.card, { borderColor: typeColor }]}>
             <Text style={styles.cardLabel}>{label}</Text>
             <Text style={styles.name}>{pokemon.name}</Text>
 
             <Image source={{ uri: pokemon.image }} style={styles.image} />
 
-            <Text style={styles.type}>{pokemon.types.join(", ")}</Text>
+            {/* <Text style={styles.type}>{pokemon.types.join(", ")}</Text> */}
+            <View style={styles.typeRow}>
+                {
+                    pokemon.types.map((type) => (
+                        <View key={type}
+                            style={[styles.typeBadge,
+                            { backgroundColor: colorByType[type] ?? "#9ca3af" },
+                            ]}
+                        >
+                            <Text style={styles.typeBadgeText}>{type}</Text>
+                        </View>
+                    ))}
+            </View>
 
             <HpBar currentHp={currentHp} maxHp={pokemon.hp} />
 
@@ -444,10 +492,27 @@ function PokemonBattleCard({
         </View>
     );
 }
+
+function getHpColor(currentHp: number, maxHp: number) {
+    const percent = currentHp / maxHp;
+
+    if (percent <= 0.25) {
+        return "#ef4444";
+    }
+
+    if (percent <= 0.5) {
+        return "#f59e0b";
+    }
+
+    return "#22c55e";
+}
+
 function HpBar({ currentHp, maxHp }:
     { currentHp: number; maxHp: number }) {
 
     const widthPercent = Math.max((currentHp / maxHp) * 100, 0);
+    const hpColor = getHpColor(currentHp, maxHp);
+
 
     return (
         <View style={styles.hpContainer}>
@@ -457,7 +522,11 @@ function HpBar({ currentHp, maxHp }:
             </View>
 
             <View style={styles.hpTrack}>
-                <View style={[styles.hpFill, { width: `${widthPercent}%` }]} />
+                <View style={[styles.hpFill, {
+                    width: `${widthPercent}%`,
+                    backgroundColor: hpColor,
+                }
+                ]} />
             </View>
         </View>
     );
@@ -485,6 +554,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: "#f3f4f6",
         gap: 10,
+        borderWidth: 2,
     },
     cardLabel: {
         fontSize: 14,
@@ -502,13 +572,7 @@ const styles = StyleSheet.create({
         height: 150,
         alignSelf: "center",
     },
-    type: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#4b5563",
-        textAlign: "center",
-        textTransform: "capitalize",
-    },
+
     hpContainer: {
         gap: 6,
     },
@@ -644,6 +708,49 @@ const styles = StyleSheet.create({
     resetButtonText: {
         color: "#111827",
         fontWeight: "800",
+    },
+    //===================
+    typeRow: {
+        flexDirection: "row",
+        justifyContent: "center",
+        gap: 8,
+        flexWrap: "wrap",
+    },
+    typeBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 999,
+    },
+    typeBadgeText: {
+        color: "white",
+        fontSize: 13,
+        fontWeight: "800",
+        textTransform: "capitalize",
+    },
+    winLogBox: {
+        backgroundColor: "#16a34a",
+    },
+    loseLogBox: {
+        backgroundColor: "#dc2626",
+    },
+
+    championBox: {
+        gap: 4,
+        padding: 14,
+        borderRadius: 10,
+        backgroundColor: "#fef3c7",
+        borderWidth: 1,
+        borderColor: "#f59e0b",
+    },
+    championTitle: {
+        fontSize: 18,
+        fontWeight: "900",
+        color: "#92400e",
+    },
+    championText: {
+        color: "#92400e",
+        fontWeight: "600",
+        textTransform: "capitalize",
     },
 
 })
