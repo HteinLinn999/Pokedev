@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -21,6 +22,13 @@ interface BattlePokemon {
 }
 
 type BattleResult = "playing" | "win" | "lose";
+
+const SCORE_STORAGE_KEY = "pokemon_battle_score";
+interface SavedScore {
+    wins: number;
+    losses: number;
+    bestRound: number;
+}
 
 const colorByType: { [key: string]: string } = {
     normal: "#A8A77A",
@@ -59,10 +67,13 @@ export default function Battle() {
     const [wins, setWins] = useState(0);
     const [losses, setLosses] = useState(0);
     const [playerMaxHp, setPlayerMaxHp] = useState(0);
+    const [bestRound, setBestRound] = useState(1);
 
     useEffect(() => {
+        loadSavedScore();
         fetchRandomEnemy();
     }, []);
+
 
     useEffect(() => {
         if (selectedPokemon) {
@@ -81,6 +92,32 @@ export default function Battle() {
             defense: enemy.defense + bonus * 2,
             speed: enemy.speed + bonus * 2,
         };
+    }
+
+    async function loadSavedScore() {
+        try {
+            const savedScore = await AsyncStorage.getItem(SCORE_STORAGE_KEY);
+
+            if (!savedScore) {
+                return;
+            }
+
+            const parsedScore: SavedScore = JSON.parse(savedScore);
+
+            setWins(parsedScore.wins);
+            setLosses(parsedScore.losses);
+            setBestRound(parsedScore.bestRound);
+        } catch (error) {
+            console.log("Load score error:", error);
+        }
+    }
+
+    async function saveScore(nextScore: SavedScore) {
+        try {
+            await AsyncStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(nextScore));
+        } catch (error) {
+            console.log("Save score error:", error);
+        }
     }
 
 
@@ -221,7 +258,22 @@ export default function Battle() {
 
             if (nextEnemyHp <= 0) {
                 setBattleResult("win");
-                setWins((currentWins) => currentWins + 1);
+                // setWins((currentWins) => currentWins + 1);
+                setWins((currentWins) => {
+                    const nextWins = currentWins + 1;
+                    const nextBestRound = Math.max(bestRound, round);
+
+                    setBestRound(nextBestRound);
+
+                    saveScore({
+                        wins: nextWins,
+                        losses,
+                        bestRound: nextBestRound,
+                    });
+
+                    return nextWins;
+                });
+
                 setBattleLog("You win!");
                 addBattleLogs(["You win!", ...logs]);
                 return;
@@ -244,7 +296,19 @@ export default function Battle() {
 
             if (nextPlayerHp <= 0) {
                 setBattleResult("lose");
-                setLosses((currentLosses) => currentLosses + 1);
+                // setLosses((currentLosses) => currentLosses + 1);
+                setLosses((currentLosses) => {
+                    const nextLosses = currentLosses + 1;
+
+                    saveScore({
+                        wins,
+                        losses: nextLosses,
+                        bestRound,
+                    });
+
+                    return nextLosses;
+                });
+
                 setBattleLog("You lose.");
                 addBattleLogs(["You lose.", ...logs]);
                 return;
@@ -260,7 +324,19 @@ export default function Battle() {
 
         if (nextPlayerHp <= 0) {
             setBattleResult("lose");
-            setLosses((currentLosses) => currentLosses + 1);
+            // setLosses((currentLosses) => currentLosses + 1);
+            setLosses((currentLosses) => {
+                const nextLosses = currentLosses + 1;
+
+                saveScore({
+                    wins,
+                    losses: nextLosses,
+                    bestRound,
+                });
+
+                return nextLosses;
+            });
+
             setBattleLog("You lose.");
             addBattleLogs(["You lose.", ...logs]);
             return;
@@ -283,7 +359,22 @@ export default function Battle() {
 
         if (nextEnemyHp <= 0) {
             setBattleResult("win");
-            setWins((currentWins) => currentWins + 1);
+            //setWins((currentWins) => currentWins + 1);
+            setWins((currentWins) => {
+                const nextWins = currentWins + 1;
+                const nextBestRound = Math.max(bestRound, round);
+
+                setBestRound(nextBestRound);
+
+                saveScore({
+                    wins: nextWins,
+                    losses,
+                    bestRound: nextBestRound,
+                });
+
+                return nextWins;
+            });
+
             setBattleLog("You win!");
             addBattleLogs(["You win!", ...logs]);
             return;
@@ -345,16 +436,25 @@ export default function Battle() {
             </View>
         );
     }
-    function resetGame() {
+    async function resetGame() {
         if (!selectedPokemon) return;
 
         setRound(1);
         setWins(0);
         setLosses(0);
+        setBestRound(1);
         setPlayerHp(selectedPokemon.hp);
         setPlayerMaxHp(selectedPokemon.hp);
         setBattleResult("playing");
         setBattleLogs([]);
+
+
+        await saveScore({
+            wins: 0,
+            losses: 0,
+            bestRound: 1,
+        });
+
         fetchRandomEnemy(1);
     }
 
@@ -385,6 +485,11 @@ export default function Battle() {
                     <Text style={styles.scoreLabel}>Losses</Text>
                     <Text style={styles.scoreValue}>{losses}</Text>
                 </View>
+                <View style={styles.scoreItem}>
+                    <Text style={styles.scoreLabel}>Best</Text>
+                    <Text style={styles.scoreValue}>{bestRound}</Text>
+                </View>
+
             </View>
 
             <PokemonBattleCard
@@ -419,9 +524,19 @@ export default function Battle() {
                 currentHp={playerHp} />
 
             {battleResult === "playing" ? (
-                <Pressable style={styles.actionButton} onPress={attack}>
-                    <Text style={styles.actionButtonText}>Attack</Text>
-                </Pressable>
+                <View style={styles.playingActions}>
+
+                    <Pressable style={styles.actionButton} onPress={attack}>
+                        <Text style={styles.actionButtonText}>Attack</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.changePokemonButton}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={styles.changePokemonButtonText}>Change Pokemon</Text>
+                    </Pressable>
+                </View>
+
             ) : (
                 <View style={styles.resultActions}>
                     {/* အောက်က အနိုင်အရှံး ပြတဲ့ Text မလိုတော့ဘူး */}
@@ -439,9 +554,16 @@ export default function Battle() {
                         <Text style={styles.resetButtonText}>Reset Game</Text>
                     </Pressable>
 
-                    <Pressable style={styles.backButton} onPress={() => router.back()}>
-                        <Text style={styles.backButtonText}>Back Home</Text>
+                    <Pressable
+                        style={styles.changePokemonButton}
+                        onPress={() => router.back()}
+                    >
+                        <Text style={styles.changePokemonButtonText}>Change Pokemon</Text>
                     </Pressable>
+
+                    {/* <Pressable style={styles.backButton} onPress={() => router.back()}>
+                        <Text style={styles.backButtonText}>Back Home</Text>
+                    </Pressable> */}
                 </View>
             )}
         </ScrollView>
@@ -680,15 +802,17 @@ const styles = StyleSheet.create({
     //-------------------
     scoreBoard: {
         flexDirection: "row",
+        flexWrap: "wrap",
         gap: 10,
     },
     scoreItem: {
-        flex: 1,
+        width: "48%",
         padding: 12,
         borderRadius: 10,
         backgroundColor: "#111827",
         alignItems: "center",
     },
+
     scoreLabel: {
         color: "#9ca3af",
         fontSize: 13,
@@ -752,5 +876,20 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         textTransform: "capitalize",
     },
+
+    //---------------------
+    playingActions: {
+  gap: 12,
+},
+changePokemonButton: {
+  paddingVertical: 12,
+  borderRadius: 10,
+  backgroundColor: "#2563eb",
+  alignItems: "center",
+},
+changePokemonButtonText: {
+  color: "white",
+  fontWeight: "800",
+},
 
 })

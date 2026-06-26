@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { Text, View, StyleSheet, ScrollView, Image, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
 
 interface PokemonAPI {
@@ -154,10 +154,10 @@ export default function Index() {
             onPress={() => router.push("/battle")}
             style={styles.battleButton}
           >
-            <Text style={styles.battleButtonText}>Battle</Text>
+            <Text style={styles.battleButtonText}>Start Battle</Text>
           </Pressable>
           <Pressable onPress={clearSelectedPokemon} style={styles.clearButton}>
-            <Text style={styles.clearButtonText}>Clear</Text>
+            <Text style={styles.clearButtonText}>Change</Text>
           </Pressable>
 
         </View>
