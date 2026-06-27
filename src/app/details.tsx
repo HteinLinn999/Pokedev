@@ -1,3 +1,5 @@
+import { fetchPokemonByName, mapToDetails } from "@/services/pokeapi";
+import type { PokemonDetails } from "@/types/pokemon";
 import BottomSheet, {
     BottomSheetBackdrop,
     //  BottomSheetView,
@@ -18,19 +20,7 @@ import {
 
 import { Pressable } from "react-native";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
-interface PokemonStat {
-    name: string,
-    value: number;
-}
-interface PokemonDetails {
-    name: string;
-    height: number;
-    weight: number;
-    image: string;
-    types: string[];
-    abilities: string[];
-    stats: PokemonStat[];
-}
+
 export default function Details() {
 
     const [pokemon, setPokemon] = useState<PokemonDetails | null>(null);
@@ -43,34 +33,15 @@ export default function Details() {
 
     useEffect(() => {
         if (name) {
-            fetchPokemonByName(name as string);
+            fetchPokemonByNameHandler(name as string);
         }
     }, [name])
 
-    async function fetchPokemonByName(name: string) {
+    async function fetchPokemonByNameHandler(name: string) {
         try {
-            //fetch 
             setLoading(true);
-            const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
-            if (!response.ok) {
-                throw new Error("Pokemon detail fetch failed");
-            }
-            const data = await response.json();
-
-            setPokemon({
-                name: data.name,
-                height: data.height,
-                weight: data.weight,
-                image: data.sprites.front_default,
-                types: data.types.map((item: any) => item.type.name),
-                abilities: data.abilities.map((item: any) => item.ability.name),
-                stats: data.stats.map((item: any) => ({
-                    name: item.stat.name,
-                    value: item.base_stat
-                }))
-            });
-
-
+            const data = await fetchPokemonByName(name);
+            setPokemon(mapToDetails(data));
         } catch (error) {
             console.log("Fetch pokemon detail error:", error);
         } finally {

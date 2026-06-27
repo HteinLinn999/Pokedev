@@ -1,4 +1,11 @@
+import { colorByType } from "@/constants/pokemonTypes";
+import {
+    fetchPokemonById,
+    mapToBattlePokemon,
+} from "@/services/pokeapi";
+import type { BattlePokemon } from "@/types/pokemon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -11,15 +18,6 @@ import {
     View
 } from "react-native";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
-interface BattlePokemon {
-    name: string;
-    image: string;
-    types: string[];
-    hp: number;
-    attack: number;
-    defense: number;
-    speed: number;
-}
 
 type BattleResult = "playing" | "win" | "lose";
 
@@ -29,27 +27,6 @@ interface SavedScore {
     losses: number;
     bestRound: number;
 }
-
-const colorByType: { [key: string]: string } = {
-    normal: "#A8A77A",
-    fire: "#EE8130",
-    water: "#6390F0",
-    electric: "#F7D02C",
-    grass: "#7AC74C",
-    ice: "#96D9D6",
-    fighting: "#C22E28",
-    poison: "#A33EA1",
-    ground: "#E2BF65",
-    flying: "#A98FF3",
-    psychic: "#F95587",
-    bug: "#A6B91A",
-    rock: "#B6A136",
-    ghost: "#735797",
-    dragon: "#6F35FC",
-    dark: "#705746",
-    steel: "#B7B7CE",
-    fairy: "#D685AD",
-};
 
 export default function Battle() {
     const { selectedPokemon , loadingSelectedPokemon } = useSelectedPokemon();
@@ -135,28 +112,8 @@ export default function Battle() {
                 setPlayerHp(selectedPokemon.hp);
             }
             const randomId = Math.floor(Math.random() * 151) + 1;
-            const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
-
-            if (!response.ok) {
-                throw new Error("Enemy pokemon fetch failed");
-            }
-            const data = await response.json();
-
-            const enemy: BattlePokemon = {
-                name: data.name,
-                image: data.sprites.front_default,
-                types: data.types.map((item: any) => item.type.name),
-                hp: data.stats.find((item: any) => item.stat.name === "hp")?.base_stat ?? 50,
-                attack:
-                    data.stats.find((item: any) => item.stat.name === "attack")
-                        ?.base_stat ?? 50,
-                defense:
-                    data.stats.find((item: any) => item.stat.name === "defense")
-                        ?.base_stat ?? 50,
-                speed:
-                    data.stats.find((item: any) => item.stat.name === "speed")
-                        ?.base_stat ?? 50,
-            };
+            const data = await fetchPokemonById(randomId);
+            const enemy = mapToBattlePokemon(data);
 
             const scaledEnemy = scaleEnemyByRound(enemy, roundForEnemy);
 

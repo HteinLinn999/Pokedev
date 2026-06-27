@@ -1,15 +1,14 @@
-
+import type { SelectedPokemon } from "@/types/pokemon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
-interface SelectedPokemon {
-    name: string;
-    image: string;
-    types: string[];
-    hp: number;
-    attack: number;
-    defense: number;
-    speed: number;
-}
+import {
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 
 
 interface SelectedPokemonContextValue {
@@ -51,7 +50,7 @@ export function SelectedPokemonProvider({ children }: { children: ReactNode }) {
         }
     }
 
-    async function choosePokemon(pokemon: SelectedPokemon) {
+    const choosePokemon = useCallback(async (pokemon: SelectedPokemon) => {
         setSelectedPokemon(pokemon);
 
         try {
@@ -62,30 +61,29 @@ export function SelectedPokemonProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.log("Save selected pokemon error:", error);
         }
-    }
+    }, []);
 
-    async function clearSelectedPokemon() {
+    const clearSelectedPokemon = useCallback(async () => {
         setSelectedPokemon(null);
         try {
             await AsyncStorage.removeItem(SELECTED_POKEMON_STORAGE_KEY);
         } catch (error) {
             console.log("Clear selected pokemon error:", error);
         }
-    }
+    }, []);
+
+    const value = useMemo(
+        () => ({
+            selectedPokemon,
+            choosePokemon,
+            clearSelectedPokemon,
+            loadingSelectedPokemon,
+        }),
+        [selectedPokemon, choosePokemon, clearSelectedPokemon, loadingSelectedPokemon]
+    );
 
     return (
-        <SelectedPokemonContext.Provider
-            value={
-                {
-                    selectedPokemon,
-                    choosePokemon,
-                    clearSelectedPokemon,
-                    loadingSelectedPokemon
-
-
-                }
-            }
-        >
+        <SelectedPokemonContext.Provider value={value}>
             {children}
 
         </SelectedPokemonContext.Provider>
