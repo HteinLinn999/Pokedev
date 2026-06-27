@@ -1,6 +1,16 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from "react-native";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
 
 interface PokemonAPI {
@@ -42,33 +52,47 @@ const colorByType: { [key: string]: string } = {
   fairy: "#D685AD"
 };
 
+const PAGE_SIZE = 20;
+
 export default function Index() {
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMorePokemon, setHasMorePokemon] = useState(true);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+
 
   const { selectedPokemon, clearSelectedPokemon, loadingSelectedPokemon } = useSelectedPokemon();
 
   //  console.log("pokemon[0]:", JSON.stringify(pokemons[0], null, 2));
 
   useEffect(() => {
-    // fetch data from pokeapi 
-    fetchPokemon();
+    fetchPokemon(0, false);
   }, []);
 
-  async function fetchPokemon() {
+
+  async function fetchPokemon(nextOffset = 0, shouldAppend = false) {
     try {
-      const response = await fetch("https://pokeapi.co/api/v2/pokemon?limit=20");
+      setErrorMessage("");
+      if (shouldAppend) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${PAGE_SIZE}&offset=${nextOffset}`);
 
       if (!response.ok) {
         throw new Error("Pokemon list fetch failed");
       }
 
       const data = await response.json();
-      // console.log("Fetched Pokemon data:", data);
 
-      //fetch detailed info for each Pokemon in parallel
       const detailedPokemons = await Promise.all(
         data.results.map(async (pokemon: PokemonAPI) => {
           const res = await fetch(pokemon.url);
@@ -87,11 +111,17 @@ export default function Index() {
         })
       );
 
-      //console.log("Pokemon data:", data);
-      //setPokemons(data.results);
+      if (shouldAppend) {
+        setPokemons((currentPokemons) => [
+          ...currentPokemons,
+          ...detailedPokemons,
+        ]);
+      } else {
+        setPokemons(detailedPokemons);
+      }
 
-      //   console.log("Detailed Pokemon data:", detailedPokemons);
-      setPokemons(detailedPokemons);
+      setOffset(nextOffset + PAGE_SIZE);
+      setHasMorePokemon(Boolean(data.next));
 
     } catch (error) {
       console.error("Fetch Pokemon error:", error);
@@ -99,13 +129,49 @@ export default function Index() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }
 
   function onRefresh() {
     setRefreshing(true);
-    fetchPokemon();
+    setOffset(0);
+    setHasMorePokemon(true);
+    fetchPokemon(0, false);
   }
+  function loadMorePokemon() {
+    if (loadingMore || !hasMorePokemon) {
+      return;
+    }
+    fetchPokemon(offset, true);
+  }
+
+
+  const pokemonTypes = [
+    "all",
+    ...Array.from(
+      new Set(
+        pokemons.flatMap((pokemon) =>
+          pokemon.types.map((item) => item.type.name)
+        )
+      )
+    ),
+  ];
+
+  const filteredPokemons = pokemons.filter((pokemon) => {
+    const matchesSearch = pokemon.name
+      .toLowerCase()
+      .includes(searchText.toLowerCase());
+
+    const matchesType =
+      selectedType === "all" ||
+      pokemon.types.some((item) => item.type.name === selectedType);
+
+    return matchesSearch && matchesType;
+  });
+
+
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -170,8 +236,56 @@ export default function Index() {
 
         </View>
       )}
+
+      <View style={styles.filterSection}>
+        <TextInput
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder="Search Pokemon"
+          style={styles.searchInput}
+          autoCapitalize="none"
+        />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.typeFilterRow}
+        >
+          {pokemonTypes.map((type) => {
+            const isSelected = selectedType === type;
+
+            return (
+              <Pressable
+                key={type}
+                onPress={() => setSelectedType(type)}
+                style={[
+                  styles.typeFilterButton,
+                  isSelected && styles.typeFilterButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.typeFilterText,
+                    isSelected && styles.typeFilterTextActive,
+                  ]}
+                >
+                  {type}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {filteredPokemons.length === 0 && (
+        <View style={styles.emptyListBox}>
+          <Text style={styles.emptyListTitle}>No Pokemon found</Text>
+          <Text style={styles.emptyListText}>Try another name or type.</Text>
+        </View>
+      )}
       {
-        pokemons.map((pokemon) => {
+        //pokemons.map((pokemon) => {
+        filteredPokemons.map((pokemon) => {
 
           const mainType = pokemon.types[0].type.name;
           const backgroundColor = colorByType[mainType] + "50";
@@ -213,6 +327,18 @@ export default function Index() {
           )
         })
       }
+      {/* {hasMorePokemon && filteredPokemons.length > 0 && ( */}
+      {hasMorePokemon && (
+        <Pressable
+          style={styles.loadMoreButton}
+          onPress={loadMorePokemon}
+          disabled={loadingMore}
+        >
+          <Text style={styles.loadMoreButtonText}>
+            {loadingMore ? "Loading..." : "Load More"}
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -325,6 +451,64 @@ const styles = StyleSheet.create({
   battleButtonText: {
     color: "white",
     fontWeight: "700",
+  },
+  //----------------
+  filterSection: {
+    gap: 12,
+  },
+  searchInput: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#f3f4f6",
+    fontSize: 16,
+  },
+  typeFilterRow: {
+    gap: 8,
+  },
+  typeFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "#e5e7eb",
+  },
+  typeFilterButtonActive: {
+    backgroundColor: "#111827",
+  },
+  typeFilterText: {
+    fontWeight: "700",
+    color: "#374151",
+    textTransform: "capitalize",
+  },
+  typeFilterTextActive: {
+    color: "white",
+  },
+  emptyListBox: {
+    gap: 6,
+    padding: 20,
+    borderRadius: 10,
+    backgroundColor: "#f9fafb",
+    alignItems: "center",
+  },
+  emptyListTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  emptyListText: {
+    color: "#6b7280",
+  },
+  //=====================
+  loadMoreButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: "#111827",
+    alignItems: "center",
+    marginBottom:20,
+  },
+  loadMoreButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "800",
   },
 
 
