@@ -52,7 +52,7 @@ const colorByType: { [key: string]: string } = {
 };
 
 export default function Battle() {
-    const { selectedPokemon } = useSelectedPokemon();
+    const { selectedPokemon , loadingSelectedPokemon } = useSelectedPokemon();
 
     const [enemyPokemon, setEnemyPokemon] = useState<BattlePokemon | null>(null);
     const [loading, setLoading] = useState(true);
@@ -879,17 +879,17 @@ const styles = StyleSheet.create({
 
     //---------------------
     playingActions: {
-  gap: 12,
-},
-changePokemonButton: {
-  paddingVertical: 12,
-  borderRadius: 10,
-  backgroundColor: "#2563eb",
-  alignItems: "center",
-},
-changePokemonButtonText: {
-  color: "white",
-  fontWeight: "800",
-},
+        gap: 12,
+    },
+    changePokemonButton: {
+        paddingVertical: 12,
+        borderRadius: 10,
+        backgroundColor: "#2563eb",
+        alignItems: "center",
+    },
+    changePokemonButtonText: {
+        color: "white",
+        fontWeight: "800",
+    },
 
 })

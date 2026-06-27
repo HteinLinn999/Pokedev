@@ -1,20 +1,20 @@
-import { useLocalSearchParams, router, Stack } from "expo-router";
-import { useMemo, useEffect, useState } from "react";
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    Platform,
-    View,
-    ActivityIndicator,
-    Image
-} from "react-native";
 import BottomSheet, {
     BottomSheetBackdrop,
     //  BottomSheetView,
     BottomSheetFooter,
     BottomSheetScrollView
 } from "@gorhom/bottom-sheet";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    Image,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
+} from "react-native";
 
 import { Pressable } from "react-native";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
@@ -93,25 +93,28 @@ export default function Details() {
         );
     }
 
-    function chooseCurrentPokemon() {
+   async function chooseCurrentPokemon() {
         if (!pokemon) return;
 
-        const hp = pokemon?.stats.find((stat) => stat.name === "hp")?.value ?? 50;
-        const attack =
-            pokemon?.stats.find((stat) => stat.name === "attack")?.value ?? 50;
-        const defense =
-            pokemon?.stats.find((stat) => stat.name === "defense")?.value ?? 50;
-        const speed =
-            pokemon?.stats.find((stat) => stat.name === "speed")?.value ?? 50;
+        const stats = Object.fromEntries(
+            pokemon.stats.map((stat) => [stat.name, stat.value])
+        );
+        // const hp = pokemon?.stats.find((stat) => stat.name === "hp")?.value ?? 50;
+        // const attack =
+        //     pokemon?.stats.find((stat) => stat.name === "attack")?.value ?? 50;
+        // const defense =
+        //     pokemon?.stats.find((stat) => stat.name === "defense")?.value ?? 50;
+        // const speed =
+        //     pokemon?.stats.find((stat) => stat.name === "speed")?.value ?? 50;
 
-        choosePokemon({
+        await choosePokemon({
             name: pokemon?.name as string,
             image: pokemon?.image as string,
             types: pokemon?.types as string[],
-            hp,
-            attack,
-            defense,
-            speed,
+            hp: stats.hp ?? 50,
+            attack: stats.attack ?? 50,
+            defense: stats.defense ?? 50,
+            speed: stats.speed ?? 50,
         });
 
         router.back();
@@ -355,7 +358,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 10,
         paddingBottom: 20,
-        marginBottom:20,
+        marginBottom: 20,
         backgroundColor: "white",
     },
 

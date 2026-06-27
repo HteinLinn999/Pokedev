@@ -48,7 +48,7 @@ export default function Index() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const { selectedPokemon, clearSelectedPokemon } = useSelectedPokemon();
+  const { selectedPokemon, clearSelectedPokemon, loadingSelectedPokemon } = useSelectedPokemon();
 
   //  console.log("pokemon[0]:", JSON.stringify(pokemons[0], null, 2));
 
@@ -138,7 +138,13 @@ export default function Index() {
       }
     >
 
-      {selectedPokemon && (
+      {loadingSelectedPokemon && (
+        <View style={styles.selectedCard}>
+          <Text style={styles.selectedLabel}>Loading selected Pokemon...</Text>
+        </View>
+      )}
+
+      {!loadingSelectedPokemon && selectedPokemon && (
         <View style={styles.selectedCard}>
           <Image source={{ uri: selectedPokemon.image }} style={styles.selectedImage} />
 
@@ -149,16 +155,18 @@ export default function Index() {
               {selectedPokemon.types.join(", ")}
             </Text>
           </View>
+          <View style={{ gap: 15 }}>
+            <Pressable
+              onPress={() => router.push("/battle")}
+              style={styles.battleButton}
+            >
+              <Text style={styles.battleButtonText}>Start Battle</Text>
+            </Pressable>
+            <Pressable onPress={clearSelectedPokemon} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>Change</Text>
+            </Pressable>
+          </View>
 
-          <Pressable
-            onPress={() => router.push("/battle")}
-            style={styles.battleButton}
-          >
-            <Text style={styles.battleButtonText}>Start Battle</Text>
-          </Pressable>
-          <Pressable onPress={clearSelectedPokemon} style={styles.clearButton}>
-            <Text style={styles.clearButtonText}>Change</Text>
-          </Pressable>
 
         </View>
       )}
