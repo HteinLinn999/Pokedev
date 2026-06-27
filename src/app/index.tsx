@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -53,6 +54,7 @@ const colorByType: { [key: string]: string } = {
 };
 
 const PAGE_SIZE = 20;
+const FAVORITE_STORAGE_KEY = "favorite_pokemon_names";
 
 export default function Index() {
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
@@ -65,6 +67,10 @@ export default function Index() {
   const [errorMessage, setErrorMessage] = useState("");
   const [searchText, setSearchText] = useState("");
   const [selectedType, setSelectedType] = useState("all");
+  const [favoritePokemonNames, setFavoritePokemonNames] = useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+
 
 
   const { selectedPokemon, clearSelectedPokemon, loadingSelectedPokemon } = useSelectedPokemon();
@@ -73,7 +79,10 @@ export default function Index() {
 
   useEffect(() => {
     fetchPokemon(0, false);
+    loadFavoritePokemonNames();
   }, []);
+
+
 
 
   async function fetchPokemon(nextOffset = 0, shouldAppend = false) {
@@ -139,11 +148,49 @@ export default function Index() {
     setHasMorePokemon(true);
     fetchPokemon(0, false);
   }
+
   function loadMorePokemon() {
     if (loadingMore || !hasMorePokemon) {
       return;
     }
     fetchPokemon(offset, true);
+  }
+
+  async function loadFavoritePokemonNames() {
+    try {
+      const savedFavorites = await AsyncStorage.getItem(FAVORITE_STORAGE_KEY);
+
+      if (savedFavorites) {
+        setFavoritePokemonNames(JSON.parse(savedFavorites));
+      }
+    } catch (error) {
+      console.log("Load favorite pokemon error:", error);
+    }
+  }
+
+  async function saveFavoritePokemonNames(nextFavorites: string[]) {
+    try {
+      await AsyncStorage.setItem(
+        FAVORITE_STORAGE_KEY,
+        JSON.stringify(nextFavorites)
+      );
+    } catch (error) {
+      console.log("Save favorite pokemon error:", error);
+    }
+  }
+
+  function toggleFavoritePokemon(name: string) {
+    setFavoritePokemonNames((currentFavorites) => {
+      const isFavorite = currentFavorites.includes(name);
+
+      const nextFavorites = isFavorite
+        ? currentFavorites.filter((pokemonName) => pokemonName !== name)
+        : [...currentFavorites, name];
+
+      saveFavoritePokemonNames(nextFavorites);
+
+      return nextFavorites;
+    });
   }
 
 
@@ -167,7 +214,10 @@ export default function Index() {
       selectedType === "all" ||
       pokemon.types.some((item) => item.type.name === selectedType);
 
-    return matchesSearch && matchesType;
+    const matchesFavorite =
+      !showFavoritesOnly || favoritePokemonNames.includes(pokemon.name);
+
+    return matchesSearch && matchesType && matchesFavorite;
   });
 
 
@@ -246,6 +296,24 @@ export default function Index() {
           autoCapitalize="none"
         />
 
+        <Pressable
+          onPress={() => setShowFavoritesOnly((currentValue) => !currentValue)}
+          style={[
+            styles.favoriteFilterButton,
+            showFavoritesOnly && styles.favoriteFilterButtonActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.favoriteFilterText,
+              showFavoritesOnly && styles.favoriteFilterTextActive,
+            ]}
+          >
+            {showFavoritesOnly ? "Showing Favorites" : "Show Favorites"}
+          </Text>
+        </Pressable>
+
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -289,8 +357,10 @@ export default function Index() {
 
           const mainType = pokemon.types[0].type.name;
           const backgroundColor = colorByType[mainType] + "50";
+          const isFavorite = favoritePokemonNames.includes(pokemon.name);
 
           return (
+
             <Pressable key={pokemon.name}
               onPress={() => {
                 router.push({
@@ -312,7 +382,30 @@ export default function Index() {
 
             >
 
-              <Text style={styles.name}>{pokemon.name}</Text>
+              {/* <Text style={styles.name}>{pokemon.name}</Text> */}
+              <View style={styles.cardHeader}>
+                <Text style={styles.name}>{pokemon.name}</Text>
+
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    toggleFavoritePokemon(pokemon.name);
+                  }}
+                  style={[
+                    styles.favoriteButton,
+                    isFavorite && styles.favoriteButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.favoriteButtonText,
+                      isFavorite && styles.favoriteButtonTextActive,
+                    ]}
+                  >
+                    {isFavorite ? "Fav" : "Save"}
+                  </Text>
+                </Pressable>
+              </View>
               <Text style={styles.type}>
                 {pokemon.types.map((type) => type.type.name).join(", ")}
               </Text>
@@ -503,12 +596,52 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#111827",
     alignItems: "center",
-    marginBottom:20,
+    marginBottom: 20,
   },
   loadMoreButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "800",
+  },
+  //---------------------
+  favoriteFilterButton: {
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#e5e7eb",
+    alignItems: "center",
+  },
+  favoriteFilterButtonActive: {
+    backgroundColor: "#f59e0b",
+  },
+  favoriteFilterText: {
+    fontWeight: "800",
+    color: "#374151",
+  },
+  favoriteFilterTextActive: {
+    color: "white",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  favoriteButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e5e7eb",
+  },
+  favoriteButtonActive: {
+    backgroundColor: "#f59e0b",
+  },
+  favoriteButtonText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#374151",
+  },
+  favoriteButtonTextActive: {
+    color: "white",
   },
 
 
