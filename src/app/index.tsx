@@ -1,3 +1,6 @@
+import { colorByType, PAGE_SIZE } from "@/constants/pokemonTypes";
+import { fetchPokemonPage } from "@/services/pokeapi";
+import type { PokemonListItem } from "@/types/pokemon";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -12,9 +15,6 @@ import {
   TextInput,
   View
 } from "react-native";
-import { colorByType, PAGE_SIZE } from "@/constants/pokemonTypes";
-import { fetchPokemonPage } from "@/services/pokeapi";
-import type { PokemonListItem } from "@/types/pokemon";
 import { useSelectedPokemon } from "../../contexts/SelectedPokemonContext";
 
 const FAVORITE_STORAGE_KEY = "favorite_pokemon_names";
